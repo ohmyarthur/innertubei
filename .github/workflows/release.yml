@@ -68,14 +68,24 @@ jobs:
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "" ]; then
             
             # Get previous tag for context
-            PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
+            PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
             
-            gh api --method POST -H "Accept: application/vnd.github+json" \
-              /repos/${{ github.repository }}/releases/generate-notes \
-              -f tag_name="v$VERSION" \
-              -f target_commitish="${{ github.sha }}" \
-              -f previous_tag_name="$PREV_TAG" \
-              --jq .body > /tmp/changelog.md
+            if [ -n "$PREV_TAG" ]; then
+              echo "Using previous tag: $PREV_TAG"
+              gh api --method POST -H "Accept: application/vnd.github+json" \
+                /repos/${{ github.repository }}/releases/generate-notes \
+                -f tag_name="v$VERSION" \
+                -f target_commitish="${{ github.sha }}" \
+                -f previous_tag_name="$PREV_TAG" \
+                --jq .body > /tmp/changelog.md
+            else
+              echo "No previous tag found. Generating notes from start of history."
+              gh api --method POST -H "Accept: application/vnd.github+json" \
+                /repos/${{ github.repository }}/releases/generate-notes \
+                -f tag_name="v$VERSION" \
+                -f target_commitish="${{ github.sha }}" \
+                --jq .body > /tmp/changelog.md
+            fi
               
           else
             echo "$CHANGELOG" > /tmp/changelog.md
